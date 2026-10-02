@@ -6,6 +6,7 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python: ['3.11', '3.13']
     steps:
@@ -15,6 +16,14 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: sudo apt-get update && sudo apt-get install -y bubblewrap util-linux python3
       - run: python -m pip install .
-      - run: phibench doctor
+      - name: Probe isolated execution
+        run: |
+          python - <<'PY'
+          import tempfile
+          from phibench.sandbox import Sandbox
+          with tempfile.TemporaryDirectory() as workspace:
+              print(Sandbox().execute(workspace, 'print("PHIBENCH_ISOLATED")'))
+          PY
+          phibench doctor
       - run: python -m unittest discover -s tests -v
       - run: python tests/acceptance.py
