@@ -1,6 +1,7 @@
 """Linux execution: fail closed; never fall back to a host process."""
 import os
 from pathlib import Path
+import re
 import selectors
 import shutil
 import signal
@@ -11,13 +12,26 @@ class SandboxUnavailable(RuntimeError): pass
 
 class Sandbox:
     version = 'bubblewrap-python-ro-v1'
-    def __init__(self, timeout=3):
+    def __init__(self, timeout=3, setup_timeout=2):
         if not 0 < timeout <= 30: raise ValueError('Timeout range')
+        if not 0 < setup_timeout <= 3600: raise ValueError('Setup timeout range')
         self.timeout = timeout
         self.bwrap = shutil.which('bwrap')
         self.prlimit = shutil.which('prlimit')
         if not self.bwrap or not self.prlimit or not Path('/usr/bin/python3').is_file():
             raise SandboxUnavailable('Linux Bubblewrap, prlimit and /usr/bin/python3 required')
+        try:
+            probe = subprocess.run([self.bwrap, '--version'], capture_output=True,
+                                   text=True, check=True, timeout=min(2,setup_timeout),
+                                   env={'PATH':'/usr/bin:/bin','LANG':'C.UTF-8'})
+            version = re.fullmatch(r'bubblewrap ([0-9]{1,4})\.([0-9]{1,4})\.([0-9]{1,4})(?:[-+][A-Za-z0-9._-]{1,64})?', probe.stdout.strip())
+            if not version or tuple(map(int, version.groups())) < (0,12,0):
+                raise ValueError('unsupported version')
+            self.bwrap_version = '.'.join(version.groups())
+        except subprocess.TimeoutExpired:
+            raise TimeoutError('Sandbox version probe deadline') from None
+        except (OSError, subprocess.SubprocessError, ValueError):
+            raise SandboxUnavailable('Bubblewrap 0.12.0+ required; version probe failed or unsupported') from None
 
     def command(self, workspace, code):
         if not isinstance(code,str) or len(code.encode())>65536: raise ValueError('Python command <= 64 KiB required')
@@ -75,11 +89,12 @@ class Sandbox:
                 'stderr':bytes(chunks[2]).decode('utf8',errors='replace'),
                 'reason':reason,'duration_ms':round((time.monotonic()-started)*1000)}
 
-    def doctor(self, workspace):
-        result = self.execute(workspace,'print("PHIBENCH_ISOLATED")')
+    def doctor(self, workspace, timeout=None):
+        result = self.execute(workspace,'print("PHIBENCH_ISOLATED")',timeout=timeout)
+        if result['reason']=='timeout': raise TimeoutError('Sandbox execution probe deadline')
         if result['exit_code'] or result['stdout'].strip() != 'PHIBENCH_ISOLATED':
             raise SandboxUnavailable('Bubblewrap namespace execution unavailable; no host fallback')
-        return {'sandbox':self.version,'status':'PASS','limits':{'memory_bytes':268435456,'processes':1,
+        return {'sandbox':self.version,'bubblewrap':self.bwrap_version,'status':'PASS','limits':{'memory_bytes':268435456,'processes':1,
                 'cpu_seconds':3,'scratch_bytes':8388608,'file_bytes':1048576,'output_bytes':1048576}}
 
 

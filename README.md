@@ -17,9 +17,12 @@ experiments for this release are **NOT RUN**. No policy superiority is claimed.
 ## First success
 
 Execution needs Linux x86_64, Python 3.11+, distribution `/usr/bin/python3`,
-Bubblewrap (`bwrap`), util-linux (`prlimit`), and permitted user namespaces and
-seccomp. On Debian/Ubuntu install `bubblewrap` and `util-linux` with your usual
-system package manager. The Python package has **zero runtime dependencies**.
+Bubblewrap 0.12.0+ (`bwrap`), util-linux (`prlimit`), and permitted user namespaces
+and seccomp. Use a distribution or upstream installation providing that version;
+older distro packages are rejected. The Python package has **zero runtime dependencies**.
+CI uses Ubuntu 22.04 with a checksum-pinned upstream Bubblewrap build. Some hosts
+restrict namespace capabilities; `doctor` probes actual isolated execution and
+fails closed when unavailable. Installation never changes host security settings.
 ARM64 is untested; macOS and Windows cannot execute the sandbox.
 
 Clone the public repository, then install from its checkout:

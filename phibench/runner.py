@@ -78,8 +78,9 @@ def run(task,method,provider,directory,budget=Budget(),seed=42,protocol=None):
                 restore(work,task.initial)
                 green=snapshot(work)
                 save('initial')
-                sandbox=Sandbox()
-                j.append('sandbox.ready',sandbox.doctor(work))
+                sandbox=Sandbox(setup_timeout=remaining())
+                j.append('sandbox.ready',sandbox.doctor(work,timeout=remaining()))
+                remaining()
                 step=0
                 tool_observations=[]
                 last_critique=''
@@ -100,6 +101,7 @@ def run(task,method,provider,directory,budget=Budget(),seed=42,protocol=None):
                         cost=(size+8192)*provider.input_rate/1000000+output*provider.output_rate/1000000
                         if reserve>min(budget.tokens,provider.token_ceiling)-used['tokens'] or cost>min(budget.cost_usd,provider.cost_ceiling)-used['cost_usd']:
                             raise BudgetExhausted('Provider reservation ceiling')
+                    remaining()
                     call_id=used['calls']+1
                     j.append('model.request',{'call':call_id,'request':request,'input_bytes':size,
                         'components':{k:len(canonical(v).encode()) for k,v in request.items()},'phase':phase})
@@ -146,6 +148,7 @@ def run(task,method,provider,directory,budget=Budget(),seed=42,protocol=None):
                         j.append('tool.result',{'call':used['tools'],'result':result})
                         tool_observations.append(result)
                 while not state.stop():
+                    remaining()
                     step+=1; targets=state.next()
                     j.append('policy.instruction',{'step':step,'targets':targets,'state':state.state()})
                     response=call('optimize' if method.critique and state.failures else 'implement',targets)

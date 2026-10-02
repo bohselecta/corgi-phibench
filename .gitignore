@@ -7,3 +7,5 @@ dist/
 /experiment/
 /*-experiment/
 .env
+/.ci-bin/
+/.ci-build/

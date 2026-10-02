@@ -15,3 +15,6 @@ of both authorization ceilings, recoverable initialization, and auditable prices
 
 No historical source results or holdout tasks are republished. Fixture success,
 null and regression outcomes establish apparatus behavior only.
+
+Publication verification requires Bubblewrap 0.12.0+ and pins that dependency
+in CI, preserving failed hosted sandbox probes without relaxing isolation.

@@ -37,3 +37,9 @@ request, and that endpoint policy is recorded in the provider fingerprint.
 Automated checks and black-box acceptance supplement implementation review.
 They are not human scientific vetting or independent model-performance evidence.
 Live-provider verification remains NOT RUN. CI checks the same apparatus only.
+
+Publication review found that a new Bubblewrap version probe could outlast a
+short run budget and leave an undispatched model-request receipt. Version and
+execution setup now share the remaining run deadline; expired runs stop before
+policy/model request creation. A real slow executable shim retains the original
+counterexample without invoking any provider.

@@ -31,6 +31,30 @@ class Runner(unittest.TestCase):
     def runone(self,method='phishell',task='bugfix',scenario='success',budget=Budget(),provider=None):
         p=self.root/str(len(list(self.root.iterdir())))
         return p,run(TASKS[task],BUILTINS[method],provider or FixtureProvider(scenario),p,budget)
+    def test_sandbox_setup_shares_run_deadline_without_model_request(self):
+        import shutil,time
+        from unittest.mock import patch
+        which=shutil.which
+        for phase in ['version','execution']:
+            with self.subTest(phase=phase):
+                shim=self.root/('slow-bwrap-'+phase)
+                delay='True' if phase=='version' else 'False'
+                shim.write_text('#!/usr/bin/python3\nimport os,sys,time\n'
+                    'if "--version" in sys.argv:\n'
+                    ' if '+delay+':time.sleep(1.4)\n'
+                    ' print("bubblewrap 0.12.0")\n'
+                    'else:\n time.sleep(1.4)\n os.execv("/usr/bin/bwrap",["bwrap",*sys.argv[1:]])\n')
+                shim.chmod(0o755)
+                provider=FixtureProvider('success')
+                started=time.monotonic()
+                with patch('phibench.sandbox.shutil.which',side_effect=lambda name:str(shim) if name=='bwrap' else which(name)):
+                    with patch.object(provider,'respond',wraps=provider.respond) as respond:
+                        p,result=self.runone(provider=provider,budget=Budget(wall_seconds=1))
+                        respond.assert_not_called()
+                self.assertLess(time.monotonic()-started,1.3)
+                self.assertEqual(result['status'],'timeout')
+                self.assertEqual(result['model_calls'],0)
+                self.assertFalse(any(event['kind']=='model.request' for event in read_events(p/'events.jsonl')))
     def test_all_policies_all_task_classes_real_process_checks(self):
         for task in TASKS:
             for method in BUILTINS:

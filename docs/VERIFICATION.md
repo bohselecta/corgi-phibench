@@ -2,7 +2,7 @@
 
 Local acceptance platform: Linux x86_64; harness Python 3.12.14; sandbox Python
 3.13.5; Node 24.19.0 used only to reconstruct the historical boundary checkpoint.
-Public runtime is Python and distribution Bubblewrap/util-linux; no Node dependency.
+Public runtime is Python, Bubblewrap 0.12.0+ and util-linux; no Node dependency.
 
 The release tests run all six methods on bug-fix, feature and refactor tasks;
 validate field/grammar bounds; attempt traversal, symlink, special-file,
@@ -30,8 +30,14 @@ Screenshots show the null fixture with all 18 unsuccessful runs retained.
 Clean packaging uses a fresh standalone clone and venv, installs a built wheel
 with network disabled, runs the README's doctor/demo/verify path, then the
 critical tests. There are no Python runtime dependencies to audit. Linux
-runtime tools remain explicit external requirements. CI is configured for
-Python 3.11/3.13 on Ubuntu; hosted CI is NOT RUN until publication.
+runtime tools remain explicit external requirements. Bubblewrap 0.12.0 includes
+the upstream sandbox-setup symlink fix (GHSA-pxhw-h44j-8pfx); older versions are
+rejected before execution. Local acceptance uses 0.12.0. The first hosted Ubuntu
+24.04/Bubblewrap 0.9.0 jobs failed at loopback setup before executing any task.
+Those failures are retained. CI uses Ubuntu 22.04, Python 3.11/3.13, and an
+upstream 0.12.0 archive pinned by SHA-256, built into the checkout. Its diagnostic
+and doctor remain mandatory; sandbox limits are unchanged and host security
+settings are not modified. Exact hosted outcomes remain in campaign evidence.
 
 Live provider/model experiments: NOT RUN. Package registry, GitHub Release,
 release tag, paid deployment and website: NOT RUN / not authorized. ARM64,

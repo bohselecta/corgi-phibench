@@ -2,8 +2,22 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
+import subprocess
 from phibench.util import read_file,write_file,snapshot
-from phibench.sandbox import Sandbox
+from phibench.sandbox import Sandbox,SandboxUnavailable
+
+class SandboxRequirements(unittest.TestCase):
+    def test_old_or_unrecognized_bubblewrap_fails_closed(self):
+        for output in ['bubblewrap 0.6.1\n','bubblewrap 0.9.0\n','bubblewrap 0.11.0\n','unrecognized\n']:
+            with patch('phibench.sandbox.subprocess.run',return_value=subprocess.CompletedProcess([],0,output,'')):
+                with self.assertRaises(SandboxUnavailable):Sandbox()
+    def test_unavailable_or_timed_out_version_probe_fails_closed(self):
+        for error in [FileNotFoundError(),subprocess.CalledProcessError(1,'bwrap')]:
+            with patch('phibench.sandbox.subprocess.run',side_effect=error):
+                with self.assertRaises(SandboxUnavailable):Sandbox()
+        with patch('phibench.sandbox.subprocess.run',side_effect=subprocess.TimeoutExpired('bwrap',2)):
+            with self.assertRaises(TimeoutError):Sandbox()
 
 class FileBoundaries(unittest.TestCase):
     def setUp(self):
