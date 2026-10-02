@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use the instrument, cite the exact version and experiment protocol hash."
+title: "PhiBench: a matched control-policy laboratory"
+type: software
+version: 0.1.0
+license: Apache-2.0
+repository-code: "https://github.com/bohselecta/corgi-phibench"
+abstract: "Six development policies, isolated Python execution and replayable receipts. Fixture validation is not model-performance evidence."
+authors:
+  - name: "PhiBench contributors"

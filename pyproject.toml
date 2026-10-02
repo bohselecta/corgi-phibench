@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "phibench"
+version = "0.1.0"
+description = "A matched control-policy laboratory with isolated execution and replayable receipts"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+readme = "README.md"
+authors = [{name = "PhiBench contributors"}]
+keywords = ["control-policy", "benchmark", "research", "coding-agents"]
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/bohselecta/corgi-phibench"
+Issues = "https://github.com/bohselecta/corgi-phibench/issues"
+
+[project.scripts]
+phibench = "phibench.cli:main"
+
+[tool.setuptools]
+packages = ["phibench"]
+
+[tool.setuptools.package-data]
+phibench = ["observatory.html"]

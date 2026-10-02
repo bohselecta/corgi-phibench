@@ -1,0 +1,9 @@
+name: bounded-three
+version: 1
+growth: fixed
+step_size: 3
+rollback: true
+failure: retry
+memory: two
+max_failures: 4
+critique: false
