@@ -1,0 +1,10 @@
+PhiBench
+Published by Corgi-verse Software · https://corgi-verse.com
+
+The control-policy ideas and product lineage originate in bohselecta/phishell,
+main, ea5a613ecdd9bb9fa95b51ca94f0aa83656e4040, whose package metadata names
+PhiBench Research Team and declares MIT. The public implementation is newly
+written for this release; no source code, fixtures, holdout answers, historical
+results or Git history from that repository are distributed here.
+
+Publisher identity does not imply transfer of prior authors' copyrights.
