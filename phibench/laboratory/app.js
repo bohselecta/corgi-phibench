@@ -4,6 +4,7 @@
  const $=id=>document.getElementById(id), clean=x=>String(x??'unknown').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g,c=>'\\u'+c.charCodeAt(0).toString(16).padStart(4,'0'));
  const text=(id,x)=>$(id).textContent=clean(x), el=(tag,value,cls)=>{const n=document.createElement(tag);if(value!==undefined)n.textContent=clean(value);if(cls)n.className=cls;return n};
  const svg=(tag,attrs,value)=>{const n=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v]of Object.entries(attrs))n.setAttribute(k,v);if(value!==undefined)n.textContent=clean(value);return n};
+ const tokens=row=>row.usage?.input_tokens==null||row.usage?.output_tokens==null?null:row.usage.input_tokens+row.usage.output_tokens;
  const latest=(events,kind)=>events.filter(e=>e.kind===kind).at(-1), number=x=>x==null?'unknown':x.toLocaleString();
  let selected=data.rows[0], position=0, timer=null;
  function stop(){clearInterval(timer);timer=null;text('play','Play')}
@@ -15,6 +16,9 @@
  $('protocol').ontoggle=()=> $('protocol-toggle').setAttribute('aria-expanded',String($('protocol').open));
  const head=el('thead'), hr=el('tr');hr.append(el('th','Task / policy'));for(const m of data.manifest.methods)hr.append(el('th',m.name));head.append(hr);$('matrix').append(head);
  const body=el('tbody');for(const task of data.manifest.tasks){const tr=el('tr'),th=el('th',task.id);th.scope='row';tr.append(th);for(const method of data.manifest.methods){const td=el('td');const runs=data.rows.filter(r=>r.task===task.id&&r.method===method.name);for(const row of runs){const b=el('button',`${row.status} · ${row.verified??'?'}/${row.total??'?'}${runs.length>1?' · seed '+row.seed:''}`,row.status==='completed'?'good':row.status==='failed'?'bad':'wait');b.dataset.run=row.id;b.onclick=()=>select(row.id);b.setAttribute('aria-label',`${task.id}, ${method.name}, seed ${row.seed}, ${row.status}`);td.append(b)}if(!runs.length)td.textContent='Not scheduled';tr.append(td)}body.append(tr)}$('matrix').append(body);
+ function metricValue(row,key){if(key==='outcome')return `${row.status} · ${row.verified??'?'}/${row.total??'?'}`;if(!row.receipt)return 'unknown';if(key==='tokens')return number(tokens(row));if(key==='cost')return row.usage.cost_usd==null?'unknown':'$'+row.usage.cost_usd;if(key==='efficiency')return number(row.efficiency_per_million_tokens);if(key==='request_bytes')return number(row.receipt.events.filter(e=>e.kind==='model.request').reduce((s,e)=>s+e.payload.input_bytes,0))+' B';if(key==='response_bytes')return number(row.usage.output_bytes)+' B';return number(row[key]);}
+ function metric(){for(const b of document.querySelectorAll('[data-run]')){const row=data.rows.find(r=>r.id===b.dataset.run),siblings=data.rows.filter(r=>r.task===row.task&&r.method===row.method);b.textContent=clean(metricValue(row,$('matrix-metric').value)+(siblings.length>1?' · seed '+row.seed:''));b.dataset.metric=$('matrix-metric').value}}
+ $('matrix-metric').onchange=metric;metric();
  const counts={};for(const r of data.rows)counts[r.status]=(counts[r.status]??0)+1;text('summary',`${data.rows.length} scheduled runs · ${Object.entries(counts).map(([s,n])=>n+' '+s).join(' · ')}. Cells show final run status and final checks; failed runs can retain a passing artifact after rollback.`);
  for(const r of data.rows){const o=el('option',`${r.task} / ${r.method} / seed ${r.seed}`);o.value=r.id;$('run-select').append(o)}$('run-select').onchange=e=>select(e.target.value);
  $('previous').onclick=()=>seek(Math.max(0,position-1));$('next').onclick=()=>seek(Math.min(selected.receipt.events.length-1,position+1));$('timeline').oninput=e=>seek(Number(e.target.value));
@@ -25,7 +29,7 @@
   const receipt=selected.receipt, events=receipt?.events??[], seen=events.slice(0,position+1), current=events[position];
   for(const b of document.querySelectorAll('[data-run]'))b.setAttribute('aria-pressed',String(b.dataset.run===selected.id));
   text('run-heading',`${selected.task} / ${selected.method}`);text('run-status',selected.status);
-  text('run-facts',`Final summary · ${selected.verified??'?'} / ${selected.total??'?'} checks · ${number(selected.model_calls)} model calls · ${number(selected.tool_calls)} tools · tokens ${number(selected.usage?.tokens)} · cost ${selected.usage?.cost_usd==null?'unknown':'$'+selected.usage.cost_usd} · seed ${selected.seed}`);
+  text('run-facts',`Final summary · ${selected.verified??'?'} / ${selected.total??'?'} checks · ${number(selected.model_calls)} model calls · ${number(selected.tool_calls)} tools · ${number(selected.usage?.input_bytes)} recorded input B / ${number(selected.usage?.output_bytes)} output B · tokens ${number(tokens(selected))} · cost ${selected.usage?.cost_usd==null?'unknown':'$'+selected.usage.cost_usd} · seed ${selected.seed}`);
   for(const id of ['timeline','previous','next','play','download-receipt'])$(id).disabled=!events.length;
   $('previous').disabled=!events.length||position===0;$('next').disabled=!events.length||position===events.length-1;
   $('timeline').max=Math.max(0,events.length-1);$('timeline').value=position;text('position',events.length?`${position+1} / ${events.length}`:'no receipt');text('event-time',current?`${current.elapsed_ms} ms recorded elapsed`:'');

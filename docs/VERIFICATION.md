@@ -18,7 +18,8 @@ independent scientific replication or human acceptance.
 report data, every run's final snapshot, replay boundaries without future checks,
 actual request/component byte totals, rollback content, 20 method-grammar parity
 cases against Python, a downloaded/revalidated method, keyboard and play controls,
-unknown/hostile evidence, zero external requests/errors and 390×844 layout.
+unknown/hostile evidence, metric parity and an explicitly synthetic known-token
+UI input (not provider evidence), zero external requests/errors and 390×844 layout.
 The separately retained split mechanism records a failed two-obligation frontier,
 queued remainder [1], rollback and eventual 7/7 completion. It is not mixed into
 the matched 18-run comparison. Desktop and phone screenshots show retained success

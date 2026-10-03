@@ -8,6 +8,9 @@ There are no external fonts, scripts, images or telemetry. Node/Playwright are d
 
 Choose an actual task × policy × seed run. All scheduled runs remain present;
 absent journals show `not_run`, partial journals show retained interruption state.
+The metric selector compares actual calls, tool attempts, recorded request/response
+bytes, reported tokens, recorded cost and final checks per million known tokens.
+Unknown usage stays unknown; fixture accounting is not a policy-performance result.
 The heading and matrix show final summaries. Panels show only evidence reached by
 the event slider. Previous/next, keyboard-operable slider and play traverse actual
 journal sequence numbers; elapsed time comes from the recorded monotonic clock.
