@@ -5,16 +5,17 @@ Bubblewrap 0.12.0 and Chromium. The Python execution/security kernel and six
 versioned policies are preserved. Node/Playwright are development-only browser
 test tools; the public runtime has no Python package dependencies.
 
-57 unit tests cover the existing security, evaluator, provider, policy and recovery
+58 unit tests cover the existing security, evaluator, provider, policy and recovery
 boundaries plus laboratory hash/protocol validation, status reconstruction,
 context-byte checks, atomic export preservation, missing/hostile evidence,
-duplicate schedules and rollback origin restoration. `tests/acceptance.py` is a
+duplicate schedules, rollback origin restoration and terminal export coverage
+for crashes, timeouts, exhausted budgets and unavailable providers. `tests/acceptance.py` is a
 separately framed process test: 18 actual isolated executions, independent final
 score reconstruction, repeatable replay/export and real SIGTERM/SIGKILL recovery
 while model/tool operations are in flight. Automated review is not a claim of
 independent scientific replication or human acceptance.
 
-`npm test` checks the 54 retained success/regression/null outcomes against Python
+`npm test` checks the 90 retained success/regression/null/crash/timeout outcomes against Python
 report data, every run's final snapshot, replay boundaries without future checks,
 actual request/component byte totals, rollback content, 20 method-grammar parity
 cases against Python, a downloaded/revalidated method, keyboard and play controls,

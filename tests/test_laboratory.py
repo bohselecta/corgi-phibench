@@ -70,3 +70,23 @@ class LaboratoryTests(unittest.TestCase):
     def test_duplicate_scheduled_runs_cannot_hide_rows(self):
         r=copy.deepcopy(self.success);r['manifest']['runs'].append(r['manifest']['runs'][0]);r['protocol']=digest(r['manifest'])
         with self.assertRaisesRegex(ValueError,'Duplicate scheduled'):prepare_report(r)
+
+    def test_every_execution_terminal_state_remains_exportable(self):
+        from phibench.experiment import experiment
+        from phibench.providers import OpenAICompatible
+        from phibench.runner import Budget
+        from phibench.policies import BUILTINS
+        from phibench.tasks import TASKS
+        for scenario,status in [('crash','crashed'),('timeout','timeout')]:
+            actual=prepare_report(report(ROOT/f'examples/{scenario}-experiment'))
+            self.assertEqual(18,len(actual['rows']))
+            self.assertTrue(all(r['status']==status and r['verified'] is None for r in actual['rows']))
+            self.assertIn(status,render_html(actual))
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory)
+            kwargs={'methods':[BUILTINS['phishell']],'tasks':[TASKS['bugfix']]}
+            for name,options,status in [('budget',{'budget':Budget(calls=1)},'budget_exhausted'),
+                    ('unavailable',{'provider':OpenAICompatible('https://example.invalid/chat','not-authorized')},'unavailable')]:
+                value=experiment(base/name,**kwargs,**options)
+                self.assertEqual(status,prepare_report(value)['rows'][0]['status'])
+                self.assertIn(status,render_html(value))

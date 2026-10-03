@@ -17,7 +17,7 @@ root=Path(__file__).resolve().parents[1]
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--report',type=Path,required=True);args=parser.parse_args()
     outcomes={}
-    for name,expected in [('success',{'completed':18}),('null',{'failed':18}),('regression',{'completed':6,'failed':12}),('mechanism',{'completed':1})]:
+    for name,expected in [('success',{'completed':18}),('null',{'failed':18}),('regression',{'completed':6,'failed':12}),('mechanism',{'completed':1}),('crash',{'crashed':18}),('timeout',{'timeout':18})]:
         value=prepare_report(report(root/'examples'/f'{name}-experiment'))
         counts={s:sum(r['status']==s for r in value['rows']) for s in {r['status'] for r in value['rows']}}
         assert counts==expected,(name,counts)
@@ -45,7 +45,7 @@ def main():
             if (root/name).is_file():assert members[name]==(root/name).read_bytes(),name
     required=['LICENSE','NOTICE','README.md','RELEASE-CONTRACT.md','docs/PRODUCT-PRESERVATION.md','docs/LABORATORY.md','docs/HISTORY.md','docs/laboratory-desktop.png','docs/laboratory.html','scripts/release_gate.py','tests/browser-laboratory.cjs']
     for name in required:assert name in members,name
-    for name in ['success','null','regression','mechanism']:
+    for name in ['success','null','regression','mechanism','crash','timeout']:
         assert f'examples/{name}-experiment/experiment.json' in members
     sums={}
     for line in (dist/'SHA256SUMS').read_text().splitlines():

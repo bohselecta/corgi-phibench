@@ -10,16 +10,16 @@ const corpus=['name: custom\n','name: custom\ngrowth: fibonacci\nfailure: fibona
  try{
   const page=await browser.newPage({viewport:{width:1440,height:1200}}),errors=[],external=[];page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(!r.url().startsWith('http://127.0.0.1:'))external.push(r.url())});
   const base='http://127.0.0.1:'+server.address().port;
-  for(const name of ['success','regression','null']){
+  for(const name of ['success','regression','null','crash','timeout']){
    await page.goto(base+'/docs/'+(name==='success'?'laboratory':name+'-laboratory')+'.html');
    const evidence=report(name);assert.equal(await page.locator('[data-run]').count(),evidence.rows.length);
-   for(const row of evidence.rows){await page.selectOption('#run-select',row.id);assert.equal(await page.locator('#run-status').textContent(),row.status);assert.match(await page.locator('#run-facts').textContent(),new RegExp(row.verified+' / '+row.total+' checks'));
+   for(const row of evidence.rows){await page.selectOption('#run-select',row.id);assert.equal(await page.locator('#run-status').textContent(),row.status);assert.ok((await page.locator('#run-facts').textContent()).includes((row.verified??'?')+' / '+(row.total??'?')+' checks'));if(['crashed','timeout'].includes(row.status))assert.equal(await page.locator('#run-error').isVisible(),true);
     const final=row.receipt.events.filter(e=>e.kind==='workspace.snapshot').at(-1);assert.equal(await page.locator('#code').getAttribute('data-snapshot'),String(final.seq));
    }
    await page.selectOption('#run-select',evidence.rows[0].id);const events=evidence.rows[0].receipt.events;
    const request=events.find(e=>e.kind==='model.request');await page.locator('#timeline').evaluate((e,v)=>{e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}))},request.seq);
    const total=await page.locator('.component').evaluateAll(ns=>ns.reduce((sum,n)=>sum+Number(n.dataset.bytes),0));assert.equal(total,request.payload.input_bytes);
-   assert.equal(await page.locator('#checks .chip').count(),0);assert.equal(await page.locator('[data-step]').count(),1);assert.equal(await page.locator('[data-step]').getAttribute('class'),'wait');
+   assert.equal(await page.locator('#checks .chip').count(),0);assert.equal(await page.locator('#run-error').isVisible(),false);assert.equal(await page.locator('[data-step]').count(),1);assert.equal(await page.locator('[data-step]').getAttribute('class'),'wait');
    await page.locator('#timeline').evaluate(e=>{e.value=0;e.dispatchEvent(new Event('input',{bubbles:true}))});assert.equal(await page.locator('#code .code-line').count(),0);assert.equal(await page.locator('#context circle').count(),0);
    const rollback=events.find(e=>e.kind==='workspace.snapshot'&&e.payload.label==='rollback');if(rollback){await page.locator('#timeline').evaluate((e,v)=>{e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}))},rollback.seq);assert.match(await page.locator('#snapshot-label').textContent(),/rollback/);const expected=rollback.payload.files.solution_py??rollback.payload.files['solution.py'];assert.equal(await page.locator('.code-text').allTextContents().then(xs=>xs.join('\n')+'\n'),expected)}
   }
@@ -35,6 +35,6 @@ const corpus=['name: custom\n','name: custom\ngrowth: fibonacci\nfailure: fibona
   let synthetic=fs.readFileSync(path.join(root,'docs/laboratory.html'),'utf8');const match=synthetic.match(/(<script id="evidence" type="application\/json">)([\s\S]*?)(<\/script>)/);const input=JSON.parse(match[2]);input.interpretation='SYNTHETIC UI TEST ONLY: constructed known-token accounting; no provider or journal evidence.';input.verification={state:'NOT VERIFIED',scope:'Constructed UI test only'};input.rows[0].usage.input_tokens=2;input.rows[0].usage.output_tokens=3;input.rows[0].efficiency_per_million_tokens=1400000;synthetic=synthetic.replace(match[0],match[1]+JSON.stringify(input).replace(/</g,'\\u003c')+match[3]);fs.writeFileSync(path.join(root,'.verification/known-usage.html'),synthetic);await page.goto(base+'/.verification/known-usage.html');assert.match(await page.locator('#run-facts').textContent(),/tokens 5/);await page.selectOption('#matrix-metric','tokens');assert.equal(await page.locator('[data-run]').first().textContent(),'5');await page.selectOption('#matrix-metric','efficiency');assert.equal(await page.locator('[data-run]').first().textContent(),'1,400,000');
   await page.goto(base+'/docs/laboratory.html');await page.screenshot({path:path.join(root,'.verification/desktop.png'),fullPage:true});
   await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'mobile document overflow');await page.screenshot({path:path.join(root,'.verification/mobile.png'),fullPage:true});
-  assert.deepEqual(errors,[]);assert.deepEqual(external,[]);console.log('PASS: 54 retained runs, replay boundaries, context accounting, rollback, 20 MDL parity cases, download, hostile/unavailable evidence, mobile, zero external requests.');
+  assert.deepEqual(errors,[]);assert.deepEqual(external,[]);console.log('PASS: 90 retained runs, replay boundaries, context accounting, rollback, 20 MDL parity cases, download, hostile/unavailable evidence, mobile, zero external requests.');
  }finally{await browser.close();await new Promise(r=>server.close(r))}
 })().catch(e=>{console.error(e);process.exitCode=1});

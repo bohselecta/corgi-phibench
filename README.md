@@ -105,7 +105,12 @@ The retained regression experiment has 12 failed runs and six completed runs;
 rollback leaves some failed runs with a 7/7 passing artifact. That does not change
 their run status. `examples/mechanism-experiment` records a deliberately failed
 two-obligation PhiShell frontier, its 1 + 1 split, rollback and eventual repair.
+The retained `examples/crash-experiment` and `examples/timeout-experiment`
+keep all 18 interrupted attempts in each scenario, including unknown final checks.
+Their laboratory pages expose the recorded error without inventing a final score.
 All are apparatus fixtures; each provider knows the demo answers.
+
+![A deliberate fixture crash: retained failed attempts, unknown final checks and the recorded provider error](docs/adversity.png)
 
 ## What changes between policies
 

@@ -39,7 +39,8 @@ existing experiments remain immutable. Compare ablations by preregistering diffe
 explicit method fields under shared tasks, provider, ceilings and evaluator.
 
 Retained pages: `docs/laboratory.html`, `docs/null-laboratory.html`,
-`docs/regression-laboratory.html`, `docs/mechanism-laboratory.html`. Regenerate them from
+`docs/regression-laboratory.html`, `docs/mechanism-laboratory.html`,
+`docs/crash-laboratory.html`, `docs/timeout-laboratory.html`. Regenerate them from
 the corresponding `examples/*-experiment` directories. Success, null and regression
 cover the same 18 scheduled task/policy combinations. The split mechanism is a separate
 one-run fixture, explicitly outside that comparison. The providers know demo answers

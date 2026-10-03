@@ -98,7 +98,7 @@ def prepare_report(value):
             components = {k:len(canonical(v).encode()) for k,v in p['request'].items()}
             if p['components'] != components or p['input_bytes'] != len(canonical(p['request']).encode()):
                 raise ValueError('Context measurement differs from recorded request')
-        if receipt['status'] not in ('completed','failed','interrupted','unavailable'):
+        if receipt['status'] not in ('completed','failed','interrupted','unavailable','crashed','timeout','budget_exhausted'):
             raise ValueError('Unknown run status')
         first = receipt['run']
         expected = {'protocol':protocol,'task_hash':tasks[spec['task']]['hash'],
@@ -114,8 +114,9 @@ def prepare_report(value):
         'interpretation':('Deterministic fixture apparatus checks; no evidence of model ability '
                          'or policy superiority. Real-model comparative evidence: NOT RUN.'
                          if manifest['mode']=='fixture' else
-                         'Retained real-provider evidence. Review the full protocol and every failure; '
-                         'receipt integrity does not establish the evaluator or model claims.'),
+                         'Declared real-provider protocol. Inspect attempted, unavailable and interrupted '
+                         'outcomes; this label does not establish successful provider execution '
+                         'or comparative model performance.'),
         'verification':{'state':'PASS','scope':'Frozen protocol, receipt hash chains, snapshots and '
                        'reconstructed accounting checked in Python at export. Code reevaluation '
                        'is a separate phibench verify command. Hashes do not establish authorship.'},
