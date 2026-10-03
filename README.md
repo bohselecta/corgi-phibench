@@ -2,7 +2,7 @@
 
 **Compare coding-agent control policies with isolated execution and receipts you can replay.**
 
-![The observatory showing retained unsuccessful deterministic fixture runs](docs/observatory-desktop.png)
+![PhiBench laboratory: six policies, real fixture checks, frontier replay and measured context](docs/laboratory-desktop.png)
 
 PhiShell is one treatment. Fixed-step, Ralph fresh-context, eval-opt,
 unrestricted and exponential use the same tasks, tools, provider, evaluator
@@ -10,11 +10,28 @@ and resource ceilings. The variable is how development is paced, repaired and
 remembered. Every scheduled run remains in the report, including failures,
 interruption and unavailable providers.
 
-The screenshot is a **deterministic null fixture** with real Python test
-execution. It is an apparatus check, not model-performance evidence. Real-model
+The hero shows **18 successful deterministic fixture runs** with real isolated
+Python test execution. Their saved receipts ship in `examples/success-experiment`. It is an apparatus check, not model-performance evidence. Real-model
 experiments for this release are **NOT RUN**. No policy superiority is claimed.
 
 ## First success
+
+Open the retained `docs/laboratory.html` directly in a browser to inspect it
+offline. To regenerate the export, use Python 3.11+ on a POSIX host; no installation,
+sandbox, provider credentials or network is required after cloning:
+
+```sh
+git clone https://github.com/bohselecta/corgi-phibench.git
+cd corgi-phibench
+python3 -m phibench observe examples/success-experiment --out laboratory.html
+```
+
+Open `laboratory.html`. Choose a task × policy cell, scrub events, select a frontier
+step or request point, and inspect a saved file and its recorded write. The method
+studio validates and downloads bounded YAML for a subsequent Python run.
+[Laboratory guide](docs/LABORATORY.md) explains each measurement.
+
+### Execute a new fixture
 
 Execution needs Linux x86_64, Python 3.11+, distribution `/usr/bin/python3`,
 Bubblewrap 0.12.0+ (`bwrap`), util-linux (`prlimit`), and permitted user namespaces
@@ -79,6 +96,17 @@ Recovery refuses an active writer, preserves a torn tail, and finalizes an
 interrupted receipt. It does not resume inference or quietly start another
 trial. Create and preregister a separate experiment for a retry.
 
+## Inspect failure and recovery
+
+The original [18-failure null fixture](examples/null-experiment/experiment.json)
+and [its original screenshot](docs/observatory-desktop.png) remain intact. Reopen
+it with `phibench observe examples/null-experiment --out null.html`.
+The retained regression experiment has 12 failed runs and six completed runs;
+rollback leaves some failed runs with a 7/7 passing artifact. That does not change
+their run status. `examples/mechanism-experiment` records a deliberately failed
+two-obligation PhiShell frontier, its 1 + 1 split, rollback and eventual repair.
+All are apparatus fixtures; each provider knows the demo answers.
+
 ## What changes between policies
 
 | Policy | Frontier | Failure | Context |
@@ -122,6 +150,10 @@ Use a direct endpoint: HTTP redirects are rejected before another request.
 ```sh
 python3 -m unittest discover -s tests -v
 python3 tests/acceptance.py
+npm ci
+npx playwright install chromium
+npm test
+python3 scripts/build_release.py
 ```
 
 The adversarial suite exercises traversal, symlinks, read-only execution,

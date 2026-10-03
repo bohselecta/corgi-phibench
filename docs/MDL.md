@@ -1,7 +1,7 @@
 # Method-definition language · scalar-v1
 
 MDL is a bounded subset of YAML 1.2: a flat mapping with one `key: value` per
-line. Blank lines and whole-line comments are accepted. Values are lowercase
+line. Blank lines and whole-line comments beginning in column zero are accepted. Values are lowercase
 identifiers, nonnegative decimal integers, `true` or `false`. No quoting, tags,
 aliases, anchors, nesting, multiline values, expressions or commands are allowed.
 Maximum size is 16 KiB. Duplicate and unknown keys are errors, never overrides.

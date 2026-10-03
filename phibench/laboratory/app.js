@@ -1,0 +1,66 @@
+'use strict';
+(() => {
+ const data=JSON.parse(document.getElementById('evidence').textContent);
+ const $=id=>document.getElementById(id), clean=x=>String(x??'unknown').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g,c=>'\\u'+c.charCodeAt(0).toString(16).padStart(4,'0'));
+ const text=(id,x)=>$(id).textContent=clean(x), el=(tag,value,cls)=>{const n=document.createElement(tag);if(value!==undefined)n.textContent=clean(value);if(cls)n.className=cls;return n};
+ const svg=(tag,attrs,value)=>{const n=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v]of Object.entries(attrs))n.setAttribute(k,v);if(value!==undefined)n.textContent=clean(value);return n};
+ const latest=(events,kind)=>events.filter(e=>e.kind===kind).at(-1), number=x=>x==null?'unknown':x.toLocaleString();
+ let selected=data.rows[0], position=0, timer=null;
+ function stop(){clearInterval(timer);timer=null;text('play','Play')}
+ function select(id){stop();selected=data.rows.find(r=>r.id===id);position=Math.max(0,(selected.receipt?.events.length??1)-1);$('run-select').value=id;render()}
+ function seek(seq){stop();position=seq;render()}
+ function download(content,name,type){const url=URL.createObjectURL(new Blob([content],{type}));const a=el('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+ text('lead',`One frozen protocol. ${data.manifest.methods.length} control policies. Inspect the frontier, the actual context, and every saved version of the code.`);text('interpretation',data.interpretation);text('verification',data.verification.scope);text('manifest',JSON.stringify({protocol:data.protocol,...data.manifest},null,2));
+ $('protocol-toggle').onclick=()=>{$('protocol').open=!$('protocol').open;$('protocol-toggle').setAttribute('aria-expanded',String($('protocol').open))};
+ $('protocol').ontoggle=()=> $('protocol-toggle').setAttribute('aria-expanded',String($('protocol').open));
+ const head=el('thead'), hr=el('tr');hr.append(el('th','Task / policy'));for(const m of data.manifest.methods)hr.append(el('th',m.name));head.append(hr);$('matrix').append(head);
+ const body=el('tbody');for(const task of data.manifest.tasks){const tr=el('tr'),th=el('th',task.id);th.scope='row';tr.append(th);for(const method of data.manifest.methods){const td=el('td');const runs=data.rows.filter(r=>r.task===task.id&&r.method===method.name);for(const row of runs){const b=el('button',`${row.status} · ${row.verified??'?'}/${row.total??'?'}${runs.length>1?' · seed '+row.seed:''}`,row.status==='completed'?'good':row.status==='failed'?'bad':'wait');b.dataset.run=row.id;b.onclick=()=>select(row.id);b.setAttribute('aria-label',`${task.id}, ${method.name}, seed ${row.seed}, ${row.status}`);td.append(b)}if(!runs.length)td.textContent='Not scheduled';tr.append(td)}body.append(tr)}$('matrix').append(body);
+ const counts={};for(const r of data.rows)counts[r.status]=(counts[r.status]??0)+1;text('summary',`${data.rows.length} scheduled runs · ${Object.entries(counts).map(([s,n])=>n+' '+s).join(' · ')}. Cells show final run status and final checks; failed runs can retain a passing artifact after rollback.`);
+ for(const r of data.rows){const o=el('option',`${r.task} / ${r.method} / seed ${r.seed}`);o.value=r.id;$('run-select').append(o)}$('run-select').onchange=e=>select(e.target.value);
+ $('previous').onclick=()=>seek(Math.max(0,position-1));$('next').onclick=()=>seek(Math.min(selected.receipt.events.length-1,position+1));$('timeline').oninput=e=>seek(Number(e.target.value));
+ $('play').onclick=()=>{if(timer){stop();return}if(position>=selected.receipt.events.length-1)position=0;timer=setInterval(()=>{position++;if(position>=selected.receipt.events.length-1){position=selected.receipt.events.length-1;stop()}render()},550);text('play','Pause');render()};
+ $('file-select').onchange=()=>renderCode();
+ $('download-receipt').onclick=()=>download(selected.receipt.events.map(e=>JSON.stringify(e)).join('\n')+'\n',selected.id+'-events.jsonl','application/x-ndjson');
+ function render(){
+  const receipt=selected.receipt, events=receipt?.events??[], seen=events.slice(0,position+1), current=events[position];
+  for(const b of document.querySelectorAll('[data-run]'))b.setAttribute('aria-pressed',String(b.dataset.run===selected.id));
+  text('run-heading',`${selected.task} / ${selected.method}`);text('run-status',selected.status);
+  text('run-facts',`Final summary · ${selected.verified??'?'} / ${selected.total??'?'} checks · ${number(selected.model_calls)} model calls · ${number(selected.tool_calls)} tools · tokens ${number(selected.usage?.tokens)} · cost ${selected.usage?.cost_usd==null?'unknown':'$'+selected.usage.cost_usd} · seed ${selected.seed}`);
+  for(const id of ['timeline','previous','next','play','download-receipt'])$(id).disabled=!events.length;
+  $('previous').disabled=!events.length||position===0;$('next').disabled=!events.length||position===events.length-1;
+  $('timeline').max=Math.max(0,events.length-1);$('timeline').value=position;text('position',events.length?`${position+1} / ${events.length}`:'no receipt');text('event-time',current?`${current.elapsed_ms} ms recorded elapsed`:'');
+  text('event-label',current?`#${current.seq} · ${current.kind} · ${current.hash}`:'No retained receipt. Execution and checks are unknown.');text('event-payload',current?JSON.stringify(current,null,2):'No event');
+  const state=[...seen].reverse().find(e=>e.kind==='policy.instruction'||e.kind==='policy.observation');text('policy-state',state?`As of event #${position}: ${state.payload.state.verified.length} policy obligations verified · ${state.payload.state.failures} consecutive failures · queued remainder sizes [${state.payload.state.pending.join(', ')}]`:'No policy state observed yet.');
+  $('frontier').replaceChildren();for(const instruction of seen.filter(e=>e.kind==='policy.instruction')){const p=instruction.payload,obs=seen.find(e=>e.kind==='policy.observation'&&e.payload.step===p.step),size=32*Math.sqrt(p.targets.length),button=el('button',undefined,obs?(obs.payload.success?'good':'bad'):'wait');button.dataset.step=p.step;button.dataset.targets=p.targets.length;button.setAttribute('aria-label',`Step ${p.step}, ${p.targets.length} obligations, ${obs?(obs.payload.success?'passed':'failed'):'outcome not reached'}`);button.title=p.targets.join(', ');const s=svg('svg',{width:size+4,height:size+4,viewBox:`0 0 ${size+4} ${size+4}`});s.append(svg('rect',{x:2,y:2,width:size,height:size,rx:3}),svg('text',{x:(size+4)/2,y:(size+4)/2+5,'text-anchor':'middle'},p.targets.length));button.append(s,el('small','step '+p.step));button.onclick=()=>seek(instruction.seq);$('frontier').append(button)}
+  const evaluation=latest(seen,'evaluation');$('checks').replaceChildren();for(const r of evaluation?.payload.report.results??[])$('checks').append(el('span',`${r.id}${r.hidden?' (held-out)':''} ${r.passed?'✓':'×'}`,'chip'+(r.passed?'':' bad')));$('checks').dataset.event=evaluation?.seq??'none';
+  renderContext(seen);renderCode();
+ }
+ function renderContext(seen){
+  const requests=seen.filter(e=>e.kind==='model.request'),last=requests.at(-1),chart=$('context');chart.replaceChildren();
+  const ceiling=data.manifest.budget.context_bytes,max=Math.max(ceiling,...requests.map(e=>e.payload.input_bytes),1),x=i=>50+i*465/Math.max(1,requests.length-1),y=v=>130-v/max*100;
+  chart.append(svg('line',{x1:50,y1:130,x2:515,y2:130}),svg('line',{x1:50,y1:y(ceiling),x2:515,y2:y(ceiling),class:'ceiling'}),svg('text',{x:50,y:18},`ceiling ${number(ceiling)} B`),svg('text',{x:12,y:134},'0'));
+  if(requests.length){chart.append(svg('path',{d:requests.map((e,i)=>(i?'L':'M')+x(i)+' '+y(e.payload.input_bytes)).join(' ')}));requests.forEach((e,i)=>{const point=svg('circle',{cx:x(i),cy:y(e.payload.input_bytes),r:4,tabindex:0,role:'button','aria-label':`Call ${e.payload.call}, ${e.payload.input_bytes} bytes`});point.onclick=()=>seek(e.seq);point.onkeydown=key=>{if(key.key==='Enter'||key.key===' '){key.preventDefault();seek(e.seq)}};chart.append(point)});}
+  text('context-label',last?`As of call ${last.payload.call} · ${last.payload.phase} · ${number(last.payload.input_bytes)} bytes (${(100*last.payload.input_bytes/ceiling).toFixed(1)}% of ceiling)`:'No request recorded at this event.');$('components').replaceChildren();delete $('components').dataset.total;
+  if(!last)return;const parts={...last.payload.components},total=last.payload.input_bytes;parts['JSON framing']=total-Object.values(parts).reduce((a,b)=>a+b,0);$('components').dataset.total=total;
+  for(const [name,value]of Object.entries(parts)){const row=el('div',undefined,'component');row.dataset.bytes=value;const bar=el('span',undefined,'bar'),fill=el('i');fill.style.width=(100*value/Math.max(1,total))+'%';bar.append(fill);row.append(el('span',name),bar,el('span',number(value)+' B'));$('components').append(row)}
+ }
+ function renderCode(){
+  const snapshot=latest((selected.receipt?.events??[]).slice(0,position+1),'workspace.snapshot'),prior=$('file-select').value;$('file-select').replaceChildren();
+  const files=snapshot?.payload.files??{};for(const name of Object.keys(files)){const o=el('option',name);o.value=name;$('file-select').append(o)}if(Object.hasOwn(files,prior))$('file-select').value=prior;$('file-select').disabled=!snapshot;
+  text('snapshot-label',snapshot?`Event #${snapshot.seq} · ${snapshot.payload.label} · root ${snapshot.payload.root}`:'No snapshot reached.');text('patch',snapshot?.payload.patch||'No patch at this event.');$('code').replaceChildren();$('code').dataset.snapshot=snapshot?.seq??'none';
+  const name=$('file-select').value,content=files[name];if(content===undefined){text('origin','No saved file available.');return}
+  const origin=selected.receipt.file_versions.find(v=>v.seq===snapshot.seq)?.files[name];$('origin').replaceChildren();if(origin){const b=el('button',`${origin.kind} · event #${origin.event}${origin.model_call==null?'':' · model call '+origin.model_call}${origin.step==null?'':' · step '+origin.step}`);b.onclick=()=>seek(origin.event);$('origin').append(b)}
+  const lines=clean(content).split('\n');if(lines.at(-1)==='')lines.pop();lines.forEach((line,i)=>{const row=el('div',undefined,'code-line');row.append(el('span',i+1,'line-number'),el('span',line,'code-text'));$('code').append(row)});
+ }
+ // Exact preview of the Python flat-scalar grammar; Python remains execution authority.
+ const defaults={version:1,growth:'fixed',step_size:5,rollback:true,failure:'retry',memory:'full',max_failures:5,critique:false};
+ function parseMethod(source){
+  if(new TextEncoder().encode(source).length>16384)throw Error('MDL size exceeds 16384 UTF-8 bytes');const fields={};
+  for(const line of source.split(/\r\n|[\n\r\v\f\x1c-\x1e\x85\u2028\u2029]/)){if(/^[\t\n\v\f\r\x1c-\x1f \x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]*$/.test(line)||line.startsWith('#'))continue;const m=/^([a-z_]+):[ ]+([a-z][a-z0-9-]*|[0-9]+|true|false)[ ]*$/.exec(line);if(!m)throw Error('Only flat scalar mappings are supported');if(Object.hasOwn(fields,m[1]))throw Error('Duplicate MDL key');if(m[1]!=='name'&&!Object.hasOwn(defaults,m[1]))throw Error('Unknown MDL field');fields[m[1]]=/^[0-9]+$/.test(m[2])?Number(m[2]):m[2]==='true'?true:m[2]==='false'?false:m[2];}
+  const m={...defaults,...fields};if(typeof m.name!=='string'||!/^[a-z][a-z0-9-]{0,47}$/.test(m.name))throw Error('Method name required');if(m.version!==1)throw Error('Method version must be 1');if(!['fibonacci','fixed','exponential','all'].includes(m.growth))throw Error('Growth');if(!['retry','fibonacci','halve'].includes(m.failure))throw Error('Failure law');if(!['two','full','fresh'].includes(m.memory))throw Error('Memory');for(const [key,max]of [['step_size',64],['max_failures',32]])if(!Number.isInteger(m[key])||m[key]<1||m[key]>max)throw Error('Method bound');if(typeof m.rollback!=='boolean'||typeof m.critique!=='boolean')throw Error('Boolean required');return m;
+ }
+ function validate(){try{const m=parseMethod($('mdl').value);text('mdl-status','Valid bounded method · preview only');text('mdl-preview',JSON.stringify(m,null,2));$('download-method').disabled=false;$('mdl-status').dataset.valid='true'}catch(e){text('mdl-status',e.message);text('mdl-preview','');$('download-method').disabled=true;$('mdl-status').dataset.valid='false'}}
+ const templates=new Map([...data.method_templates,...data.manifest.methods].map(m=>[m.name,m]));for(const [name]of templates){const o=el('option',name);o.value=name;$('method-template').append(o)}
+ function template(){const m=templates.get($('method-template').value);$('mdl').value=Object.entries(m).map(([k,v])=>k+': '+v).join('\n')+'\n';validate()}
+ $('method-template').onchange=template;$('mdl').oninput=validate;$('download-method').onclick=()=>{parseMethod($('mdl').value);download($('mdl').value,'method.yaml','text/yaml')};template();select(selected.id);
+})();

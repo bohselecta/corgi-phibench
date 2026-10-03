@@ -24,4 +24,4 @@ phibench = "phibench.cli:main"
 packages = ["phibench"]
 
 [tool.setuptools.package-data]
-phibench = ["observatory.html"]
+phibench = ["observatory.html", "laboratory/*.css", "laboratory/*.js"]

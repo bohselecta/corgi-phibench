@@ -1,0 +1,37 @@
+/* Browser acceptance checks actual retained evidence, including unavailable states. */
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),http=require('node:http'),{spawnSync}=require('node:child_process'),{chromium}=require('playwright');
+const root=path.resolve(__dirname,'..'),python=process.env.PYTHON||'python3';
+function py(source,...args){const r=spawnSync(python,['-c',source,...args],{cwd:root,encoding:'utf8',maxBuffer:64*1024*1024});assert.equal(r.status,0,r.stderr);return r.stdout.trim()}
+const report=name=>JSON.parse(py('import json,sys;from phibench.experiment import report;print(json.dumps(report(sys.argv[1])))','examples/'+name+'-experiment'));
+const corpus=['name: custom\n','name: custom\ngrowth: fibonacci\nfailure: fibonacci\nmemory: two\n','name: good\nstep_size: 64\nmax_failures: 32\nrollback: false\ncritique: true\n','# comment\nname: zero\nstep_size: 0001\n','name: wrong\nstep_size: 0','name: wrong\nstep_size: 65','name: wrong\nmax_failures: 33','name: wrong\nrollback: yes','name: wrong\nversion: true','name: wrong\nname: dup','name: wrong\nextra: 1','name: "quoted"',' name: indented','name: space # comment','name: bad\ngrowth: all\nfailure: halve\nmemory: fresh','name: good\n\ufeff','name: good\n\xa0','name: good\vcritique: true','name: good\n'+ '#'.repeat(16385),'name: '+ 'a'.repeat(49)];
+(async()=>{
+ const server=http.createServer((req,res)=>{const p=path.join(root,decodeURIComponent(req.url.split('?')[0]));if(!p.startsWith(root+path.sep)){res.writeHead(403);return res.end()}try{res.end(fs.readFileSync(p))}catch{res.writeHead(404);res.end()}});await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||undefined,args:process.env.CHROMIUM_PATH?['--no-sandbox']:[]});
+ try{
+  const page=await browser.newPage({viewport:{width:1440,height:1200}}),errors=[],external=[];page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(!r.url().startsWith('http://127.0.0.1:'))external.push(r.url())});
+  const base='http://127.0.0.1:'+server.address().port;
+  for(const name of ['success','regression','null']){
+   await page.goto(base+'/docs/'+(name==='success'?'laboratory':name+'-laboratory')+'.html');
+   const evidence=report(name);assert.equal(await page.locator('[data-run]').count(),evidence.rows.length);
+   for(const row of evidence.rows){await page.selectOption('#run-select',row.id);assert.equal(await page.locator('#run-status').textContent(),row.status);assert.match(await page.locator('#run-facts').textContent(),new RegExp(row.verified+' / '+row.total+' checks'));
+    const final=row.receipt.events.filter(e=>e.kind==='workspace.snapshot').at(-1);assert.equal(await page.locator('#code').getAttribute('data-snapshot'),String(final.seq));
+   }
+   await page.selectOption('#run-select',evidence.rows[0].id);const events=evidence.rows[0].receipt.events;
+   const request=events.find(e=>e.kind==='model.request');await page.locator('#timeline').evaluate((e,v)=>{e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}))},request.seq);
+   const total=await page.locator('.component').evaluateAll(ns=>ns.reduce((sum,n)=>sum+Number(n.dataset.bytes),0));assert.equal(total,request.payload.input_bytes);
+   assert.equal(await page.locator('#checks .chip').count(),0);assert.equal(await page.locator('[data-step]').count(),1);assert.equal(await page.locator('[data-step]').getAttribute('class'),'wait');
+   await page.locator('#timeline').evaluate(e=>{e.value=0;e.dispatchEvent(new Event('input',{bubbles:true}))});assert.equal(await page.locator('#code .code-line').count(),0);assert.equal(await page.locator('#context circle').count(),0);
+   const rollback=events.find(e=>e.kind==='workspace.snapshot'&&e.payload.label==='rollback');if(rollback){await page.locator('#timeline').evaluate((e,v)=>{e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}))},rollback.seq);assert.match(await page.locator('#snapshot-label').textContent(),/rollback/);const expected=rollback.payload.files.solution_py??rollback.payload.files['solution.py'];assert.equal(await page.locator('.code-text').allTextContents().then(xs=>xs.join('\n')+'\n'),expected)}
+  }
+  await page.goto(base+'/docs/laboratory.html');
+  await page.locator('#timeline').focus();await page.keyboard.press('Home');assert.equal(await page.locator('#timeline').inputValue(),'0');await page.keyboard.press('ArrowRight');assert.equal(await page.locator('#timeline').inputValue(),'1');await page.keyboard.press('End');assert.equal(await page.locator('#next').isDisabled(),true);await page.click('#play');await page.waitForTimeout(650);assert.equal(await page.locator('#play').textContent(),'Pause');await page.click('#play');assert.ok(Number(await page.locator('#timeline').inputValue())>0);
+  for(const source of corpus){const expected=JSON.parse(py('import json,sys,dataclasses;from phibench.policies import load_method\ntry: print(json.dumps({"valid":True,"value":dataclasses.asdict(load_method(sys.argv[1]))}))\nexcept (ValueError,TypeError): print(json.dumps({"valid":False}))',source));await page.fill('#mdl',source);assert.equal(await page.locator('#mdl-status').getAttribute('data-valid'),String(expected.valid),'MDL parity '+JSON.stringify(source));if(expected.valid)assert.deepEqual(JSON.parse(await page.locator('#mdl-preview').textContent()),expected.value)}
+  await page.selectOption('#method-template','phishell');const downloadPromise=page.waitForEvent('download');await page.click('#download-method');const download=await downloadPromise;const file=path.join(root,'.verification/downloaded-method.yaml');fs.mkdirSync(path.dirname(file),{recursive:true});await download.saveAs(file);py('import sys;from pathlib import Path;from phibench.policies import load_method;assert load_method(Path(sys.argv[1]).read_text()).name=="phishell"',file);
+  // A hostile protocol note and missing receipts must remain inert and unknown.
+  const hostile=py('import copy;from phibench.experiment import report;from phibench.util import digest;from phibench.view import render_html\nr=report("examples/success-experiment");r["manifest"]["environment"]["note"]="</script><script>globalThis.pwned=true</script>__SCRIPT__";r["protocol"]=digest(r["manifest"])\nfor row in r["rows"]: row["receipt"]=None\nprint(render_html(r))');fs.writeFileSync(path.join(root,'.verification/hostile.html'),hostile);
+  await page.goto(base+'/.verification/hostile.html');assert.equal(await page.evaluate(()=>globalThis.pwned),undefined);assert.equal(await page.locator('#run-status').textContent(),'not_run');assert.equal(await page.locator('#play').isDisabled(),true);assert.equal(await page.locator('#checks .chip').count(),0);
+  await page.goto(base+'/docs/laboratory.html');await page.screenshot({path:path.join(root,'.verification/desktop.png'),fullPage:true});
+  await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'mobile document overflow');await page.screenshot({path:path.join(root,'.verification/mobile.png'),fullPage:true});
+  assert.deepEqual(errors,[]);assert.deepEqual(external,[]);console.log('PASS: 54 retained runs, replay boundaries, context accounting, rollback, 20 MDL parity cases, download, hostile/unavailable evidence, mobile, zero external requests.');
+ }finally{await browser.close();await new Promise(r=>server.close(r))}
+})().catch(e=>{console.error(e);process.exitCode=1});

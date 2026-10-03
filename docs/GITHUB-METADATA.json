@@ -1,0 +1,12 @@
+{
+  "description": "A matched coding-agent control-policy laboratory with isolated execution, replayable receipts, and an offline visual explorer.",
+  "homepage": "https://github.com/bohselecta/corgi-phibench#readme",
+  "topics": [
+    "coding-agents",
+    "control-policy",
+    "benchmark",
+    "research",
+    "receipts",
+    "python"
+  ]
+}

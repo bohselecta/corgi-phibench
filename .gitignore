@@ -9,3 +9,5 @@ dist/
 .env
 /.ci-bin/
 /.ci-build/
+/.verification/
+/node_modules/

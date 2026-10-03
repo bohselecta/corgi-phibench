@@ -58,24 +58,35 @@ def read_events(path,allow_torn=False):
         if not allow_torn: raise ReceiptError('Torn receipt tail; use recover')
         data=data[:data.rfind(b'\n')+1]
     events=[]
+    for seq,line in enumerate(data.splitlines()):
+        try: events.append(json.loads(line))
+        except (ValueError,TypeError): raise ReceiptError(f'Invalid receipt at event {seq}') from None
+    return validate_events(events)
+
+
+def validate_events(events):
+    """Validate retained in-memory events with the same journal contract."""
+    if not isinstance(events,list): raise ReceiptError('Event list required')
     previous='0'*64
     elapsed=0
-    for seq,line in enumerate(data.splitlines()):
+    for seq,event in enumerate(events):
         try:
-            event=json.loads(line)
             stored=event['hash']
             unsigned={k:v for k,v in event.items() if k!='hash'}
             if set(unsigned)!={'schema','seq','kind','payload','previous','elapsed_ms'}: raise ValueError()
             if digest(unsigned)!=stored or event['seq']!=seq or event['previous']!=previous or event['schema']!=1: raise ValueError()
             if type(event['elapsed_ms']) is not int or event['elapsed_ms']<elapsed: raise ValueError()
             if seq==0 and event['kind']!='run.started': raise ValueError()
-            if events and events[-1]['kind']=='run.finished': raise ValueError()
+            if seq and events[seq-1]['kind']=='run.finished': raise ValueError()
         except (ValueError,KeyError,TypeError): raise ReceiptError(f'Invalid receipt at event {seq}') from None
-        previous=stored; elapsed=event['elapsed_ms']; events.append(event)
+        previous=stored; elapsed=event['elapsed_ms']
     return events
 
 def replay(directory):
-    events=read_events(Path(directory)/'events.jsonl')
+    return replay_events(read_events(Path(directory)/'events.jsonl'))
+
+def replay_events(events):
+    validate_events(events)
     if not events: raise ReceiptError('Empty run receipt')
     first=events[0]['payload']
     provider=first.get('provider',{})

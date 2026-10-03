@@ -1,0 +1,14 @@
+include LICENSE NOTICE README.md SECURITY.md CONTRIBUTING.md CITATION.cff CHANGELOG.md pyproject.toml package.json package-lock.json
+recursive-include phibench *.py *.html *.css *.js
+recursive-include docs *.md *.html *.png *.json
+recursive-include examples *.yaml experiment.json events.jsonl
+recursive-include tests *.py *.cjs
+recursive-include scripts *.py
+recursive-include .github/workflows *.yml
+prune .verification
+prune .git
+prune node_modules
+prune .venv
+prune .ci-build
+prune .ci-bin
+global-exclude __pycache__ *.py[cod] *.egg-info
