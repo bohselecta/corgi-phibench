@@ -1,4 +1,4 @@
-include LICENSE NOTICE README.md SECURITY.md CONTRIBUTING.md CITATION.cff CHANGELOG.md pyproject.toml package.json package-lock.json
+include LICENSE NOTICE README.md RELEASE-CONTRACT.md SECURITY.md CONTRIBUTING.md CITATION.cff CHANGELOG.md pyproject.toml package.json package-lock.json
 recursive-include phibench *.py *.html *.css *.js
 recursive-include docs *.md *.html *.png *.json
 recursive-include examples *.yaml experiment.json events.jsonl

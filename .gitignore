@@ -11,3 +11,5 @@ dist/
 /.ci-build/
 /.verification/
 /node_modules/
+
+/laboratory.html

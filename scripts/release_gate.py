@@ -43,7 +43,7 @@ def main():
             if not item.isfile():continue
             name='/'.join(p.parts[1:]);members[name]=archive.extractfile(item).read()
             if (root/name).is_file():assert members[name]==(root/name).read_bytes(),name
-    required=['LICENSE','NOTICE','README.md','docs/PRODUCT-PRESERVATION.md','docs/LABORATORY.md','docs/HISTORY.md','docs/laboratory-desktop.png','docs/laboratory.html','scripts/release_gate.py','tests/browser-laboratory.cjs']
+    required=['LICENSE','NOTICE','README.md','RELEASE-CONTRACT.md','docs/PRODUCT-PRESERVATION.md','docs/LABORATORY.md','docs/HISTORY.md','docs/laboratory-desktop.png','docs/laboratory.html','scripts/release_gate.py','tests/browser-laboratory.cjs']
     for name in required:assert name in members,name
     for name in ['success','null','regression','mechanism']:
         assert f'examples/{name}-experiment/experiment.json' in members
