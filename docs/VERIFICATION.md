@@ -32,7 +32,10 @@ provider/run budget conflicts, price reconstruction, total HTTP deadlines,
 argument-preservation spoofing, interruption and torn-tail recovery. Unsupported
 syntax fails a conservative argument-preservation grammar. Missing isolation fails
 closed without host fallback. Linux tools and actual namespace/seccomp capability
-are probed by `doctor`; host security settings are never changed.
+are probed by `doctor`; host security settings are never changed. The shared
+setup deadline test checks actual remaining timeouts and proves delayed probes
+are killed before completion. Injected fresh-quota and omitted-deadline mutations
+must fail that test; scheduler and receipt-cleanup time is not an enforcement clock.
 
 Packaging builds twice with the same Python/setuptools/zlib toolchain and fixed
 packaging epoch, compares SHA256SUMS, inspects archive paths/content and exact runtime

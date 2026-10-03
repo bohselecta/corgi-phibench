@@ -32,26 +32,45 @@ class Runner(unittest.TestCase):
         p=self.root/str(len(list(self.root.iterdir())))
         return p,run(TASKS[task],BUILTINS[method],provider or FixtureProvider(scenario),p,budget)
     def test_sandbox_setup_shares_run_deadline_without_model_request(self):
-        import shutil,time
+        import shutil,subprocess
         from unittest.mock import patch
+        from phibench.sandbox import Sandbox
         which=shutil.which
+        real_probe=subprocess.run
+        real_execute=Sandbox.execute
         for phase in ['version','execution']:
             with self.subTest(phase=phase):
                 shim=self.root/('slow-bwrap-'+phase)
+                completed=self.root/('probe-completed-'+phase)
                 delay='True' if phase=='version' else 'False'
                 shim.write_text('#!/usr/bin/python3\nimport os,sys,time\n'
                     'if "--version" in sys.argv:\n'
-                    ' if '+delay+':time.sleep(1.4)\n'
+                    ' if '+delay+':\n  time.sleep(1.4)\n  open('+repr(str(completed))+',"w").write("completed")\n'
                     ' print("bubblewrap 0.12.0")\n'
-                    'else:\n time.sleep(1.4)\n os.execv("/usr/bin/bwrap",["bwrap",*sys.argv[1:]])\n')
+                    'else:\n time.sleep(1.4)\n open('+repr(str(completed))+',"w").write("completed")\n'
+                    ' os.execv("/usr/bin/bwrap",["bwrap",*sys.argv[1:]])\n')
                 shim.chmod(0o755)
+                version_limits=[];execution_limits=[]
+                def probe(*args,**kwargs):
+                    version_limits.append(kwargs.get('timeout'))
+                    return real_probe(*args,**kwargs)
+                def execute(instance,*args,**kwargs):
+                    execution_limits.append(kwargs.get('timeout'))
+                    return real_execute(instance,*args,**kwargs)
                 provider=FixtureProvider('success')
-                started=time.monotonic()
-                with patch('phibench.sandbox.shutil.which',side_effect=lambda name:str(shim) if name=='bwrap' else which(name)):
-                    with patch.object(provider,'respond',wraps=provider.respond) as respond:
-                        p,result=self.runone(provider=provider,budget=Budget(wall_seconds=1))
-                        respond.assert_not_called()
-                self.assertLess(time.monotonic()-started,1.3)
+                with patch('phibench.sandbox.shutil.which',side_effect=lambda name:str(shim) if name=='bwrap' else which(name)), \
+                        patch('phibench.sandbox.subprocess.run',side_effect=probe), \
+                        patch.object(Sandbox,'execute',new=execute), \
+                        patch.object(provider,'respond',wraps=provider.respond) as respond:
+                    p,result=self.runone(provider=provider,budget=Budget(wall_seconds=1))
+                    respond.assert_not_called()
+                # Inspect the enforced limits, not scheduler/receipt-cleanup latency.
+                self.assertTrue(version_limits)
+                self.assertTrue(all(v is not None and 0<v<1 for v in version_limits))
+                if phase=='execution':
+                    self.assertTrue(execution_limits)
+                    self.assertTrue(all(v is not None and 0<v<1 for v in execution_limits))
+                self.assertFalse(completed.exists(),'Slow probe completed beyond the shared deadline')
                 self.assertEqual(result['status'],'timeout')
                 self.assertEqual(result['model_calls'],0)
                 self.assertFalse(any(event['kind']=='model.request' for event in read_events(p/'events.jsonl')))
